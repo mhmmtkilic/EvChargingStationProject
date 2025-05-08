@@ -27,10 +27,7 @@ const LoginScreen = ({ navigation }) => {
       setIsLoading(true);
       // TODO: Implement login logic
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }],
-      });
+      navigation.navigate('Home');
     } catch (error) {
       // TODO: Handle error
       console.error('Login error:', error);

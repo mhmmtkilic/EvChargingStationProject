@@ -34,10 +34,7 @@ const RegisterScreen = ({ navigation }) => {
       setIsLoading(true);
       // TODO: Implement register logic
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }],
-      });
+      navigation.navigate('Home');
     } catch (error) {
       // TODO: Handle error
       console.error('Registration error:', error);

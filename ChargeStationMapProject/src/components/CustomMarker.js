@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 const CustomMarker = ({ isAvailable }) => {
   return (
     <View style={[styles.markerContainer, { backgroundColor: isAvailable ? '#2ecc71' : '#e74c3c' }]}>
-      <Ionicons name="flash" size={16} color="white" />
+      <Ionicons name="flash" size={16} color="black" />
     </View>
   );
 };
@@ -26,7 +26,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     borderWidth: 2,
-    borderColor: 'white',
+    borderColor: 'black',
   },
 });
 
