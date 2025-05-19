@@ -12,6 +12,7 @@ function App() {
         <AppNavigator />
         <StatusBar style="auto" />
       </SafeAreaProvider>
+      
     </GestureHandlerRootView>
   );
 }
