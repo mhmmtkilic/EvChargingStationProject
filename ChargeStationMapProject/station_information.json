@@ -1,0 +1,233 @@
+[
+    {
+      "id": 1,
+      "name": "Şarj İstasyonu - Taksim",
+      "latitude": 41.0369,
+      "longitude": 28.9862,
+      "charging_type": "DC",
+      "availability": true,
+      "power_kW": 50,
+      "address": "Taksim Meydanı, Beyoğlu, İstanbul"
+    },
+    {
+      "id": 2,
+      "name": "Şarj İstasyonu - Kadıköy",
+      "latitude": 40.9919,
+      "longitude": 29.0275,
+      "charging_type": "AC",
+      "availability": false,
+      "power_kW": 22,
+      "address": "Bahariye Caddesi, Kadıköy, İstanbul"
+    },
+    {
+      "id": 3,
+      "name": "Şarj İstasyonu - Beşiktaş",
+      "latitude": 41.0438,
+      "longitude": 29.0094,
+      "charging_type": "Type2",
+      "availability": true,
+      "power_kW": 11,
+      "address": "Barbaros Bulvarı, Beşiktaş, İstanbul"
+    },
+    {
+      "id": 4,
+      "name": "Şarj İstasyonu - Üsküdar",
+      "latitude": 41.022,
+      "longitude": 29.015,
+      "charging_type": "DC",
+      "availability": true,
+      "power_kW": 100,
+      "address": "İskele Meydanı, Üsküdar, İstanbul"
+    },
+    {
+      "id": 5,
+      "name": "Şarj İstasyonu - Bakırköy",
+      "latitude": 40.976,
+      "longitude": 28.8526,
+      "charging_type": "AC",
+      "availability": false,
+      "power_kW": 22,
+      "address": "İncirli Caddesi, Bakırköy, İstanbul"
+    },
+    {
+      "id": 6,
+      "name": "Şarj İstasyonu - Şişli",
+      "latitude": 41.0605,
+      "longitude": 28.987,
+      "charging_type": "Type2",
+      "availability": true,
+      "power_kW": 11,
+      "address": "Halaskargazi Caddesi, Şişli, İstanbul"
+    },
+    {
+      "id": 7,
+      "name": "Şarj İstasyonu - Ataşehir",
+      "latitude": 40.9929,
+      "longitude": 29.1285,
+      "charging_type": "DC",
+      "availability": true,
+      "power_kW": 120,
+      "address": "Ataşehir Bulvarı, Ataşehir, İstanbul"
+    },
+    {
+      "id": 8,
+      "name": "Şarj İstasyonu - Kartal",
+      "latitude": 40.8997,
+      "longitude": 29.1794,
+      "charging_type": "AC",
+      "availability": false,
+      "power_kW": 22,
+      "address": "Ankara Caddesi, Kartal, İstanbul"
+    },
+    {
+      "id": 9,
+      "name": "Şarj İstasyonu - Maltepe",
+      "latitude": 40.9345,
+      "longitude": 29.1244,
+      "charging_type": "Type2",
+      "availability": true,
+      "power_kW": 11,
+      "address": "Bağdat Caddesi, Maltepe, İstanbul"
+    },
+    {
+      "id": 10,
+      "name": "Şarj İstasyonu - Zeytinburnu",
+      "latitude": 40.9986,
+      "longitude": 28.9111,
+      "charging_type": "DC",
+      "availability": false,
+      "power_kW": 60,
+      "address": "Veliefendi Yolu, Zeytinburnu, İstanbul"
+    },
+    {
+      "id": 11,
+      "name": "Şarj İstasyonu - Beylikdüzü",
+      "latitude": 41.0023,
+      "longitude": 28.6418,
+      "charging_type": "AC",
+      "availability": true,
+      "power_kW": 22,
+      "address": "E5 Yanyol, Beylikdüzü, İstanbul"
+    },
+    {
+      "id": 12,
+      "name": "Şarj İstasyonu - Avcılar",
+      "latitude": 40.979,
+      "longitude": 28.721,
+      "charging_type": "DC",
+      "availability": true,
+      "power_kW": 90,
+      "address": "Reşitpaşa Cad., Avcılar, İstanbul"
+    },
+    {
+      "id": 13,
+      "name": "Şarj İstasyonu - Pendik",
+      "latitude": 40.874,
+      "longitude": 29.231,
+      "charging_type": "AC",
+      "availability": false,
+      "power_kW": 22,
+      "address": "Pendorya AVM, Pendik, İstanbul"
+    },
+    {
+      "id": 14,
+      "name": "Şarj İstasyonu - Sancaktepe",
+      "latitude": 40.985,
+      "longitude": 29.248,
+      "charging_type": "Type2",
+      "availability": true,
+      "power_kW": 11,
+      "address": "Demokrasi Cad., Sancaktepe, İstanbul"
+    },
+    {
+      "id": 15,
+      "name": "Şarj İstasyonu - Sarıyer",
+      "latitude": 41.165,
+      "longitude": 29.036,
+      "charging_type": "DC",
+      "availability": true,
+      "power_kW": 150,
+      "address": "Sarıyer Merkez, İstanbul"
+    },
+    {
+      "id": 16,
+      "name": "Şarj İstasyonu - Tuzla",
+      "latitude": 40.822,
+      "longitude": 29.300,
+      "charging_type": "AC",
+      "availability": true,
+      "power_kW": 22,
+      "address": "İstanbul Park, Tuzla, İstanbul"
+    },
+    {
+      "id": 17,
+      "name": "Şarj İstasyonu - Arnavutköy",
+      "latitude": 41.191,
+      "longitude": 28.739,
+      "charging_type": "DC",
+      "availability": false,
+      "power_kW": 100,
+      "address": "Arnavutköy Merkez, İstanbul"
+    },
+    {
+      "id": 18,
+      "name": "Şarj İstasyonu - Bahçelievler",
+      "latitude": 40.994,
+      "longitude": 28.850,
+      "charging_type": "Type2",
+      "availability": true,
+      "power_kW": 11,
+      "address": "Şirinevler Meydanı, Bahçelievler, İstanbul"
+    },
+    {
+      "id": 19,
+      "name": "Şarj İstasyonu - Fatih",
+      "latitude": 41.019,
+      "longitude": 28.933,
+      "charging_type": "AC",
+      "availability": false,
+      "power_kW": 22,
+      "address": "Fevzi Paşa Cad., Fatih, İstanbul"
+    },
+    {
+      "id": 20,
+      "name": "Şarj İstasyonu - Eyüpsultan",
+      "latitude": 41.048,
+      "longitude": 28.933,
+      "charging_type": "DC",
+      "availability": true,
+      "power_kW": 60,
+      "address": "Eyüp Sultan Camii Yanı, Eyüpsultan, İstanbul"
+    },
+    {
+      "id": 21,
+      "name": "Şarj İstasyonu - Elazığ Fırat Üniversitesi",
+      "latitude": 38.6761,
+      "longitude": 39.1975,
+      "charging_type": "DC",
+      "availability": true,
+      "power_kW": 100,
+      "address": "Fırat Üniversitesi Kampüsü, Merkez, Elazığ"
+    },
+    {
+      "id": 22,
+      "name": "Şarj İstasyonu - Elazığ AVM",
+      "latitude": 38.6738,
+      "longitude": 39.2225,
+      "charging_type": "AC",
+      "availability": true,
+      "power_kW": 22,
+      "address": "Cumhuriyet Mahallesi, Gazi Caddesi No: 126, Merkez, Elazığ"
+    },
+    {
+      "id": 23,
+      "name": "Şarj İstasyonu - Elazığ Belediyesi",
+      "latitude": 38.6701,
+      "longitude": 39.2131,
+      "charging_type": "Type2",
+      "availability": false,
+      "power_kW": 11,
+      "address": "Çarşı Mahallesi, İzzet Paşa Caddesi, Merkez, Elazığ"
+    }
+  ]
+  

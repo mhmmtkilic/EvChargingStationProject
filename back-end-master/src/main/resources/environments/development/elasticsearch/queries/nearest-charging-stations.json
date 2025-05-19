@@ -1,0 +1,38 @@
+{
+  "_source": true,
+  "size": @SIZE,
+  "query": {
+    "bool": {
+      "filter": {
+        "geo_distance": {
+          "distance": "@DISTANCEkm",
+          "geoLocation": {
+            "lat": @LATITUDE,
+            "lon": @LONGITUDE
+          }
+        }
+      }
+    }
+  },
+  "sort": [
+    {
+      "_geo_distance": {
+        "geoLocation": "@LATITUDE, @LONGITUDE",
+        "order": "asc",
+        "unit": "km",
+        "mode": "min"
+      }
+    }
+  ],
+  "script_fields": {
+    "distance": {
+      "script": {
+        "source": "double distanceInMeters = doc['geoLocation'].arcDistance(params.lat, params.lon); double distanceInKm = distanceInMeters / 1000; return Math.round(distanceInKm * 100.0) / 100.0;",
+        "params": {
+          "lat": @LATITUDE,
+          "lon": @LONGITUDE
+        }
+      }
+    }
+  }
+}
