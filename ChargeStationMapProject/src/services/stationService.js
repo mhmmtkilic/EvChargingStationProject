@@ -1,8 +1,9 @@
 import { Alert } from 'react-native';
+import axios from 'axios';
 
-// API configuration
-const API_BASE_URL = 'https://api.openchargemap.io/v3';
-const API_KEY = 'YOUR_OPEN_CHARGE_MAP_API_KEY'; // You need to register for an API key
+// TomTom API için sabit değerler
+const TOMTOM_API_KEY = 'lfgX3eS62AOuWxr0GeUPQZw5CEHlA9In';
+const TOMTOM_BASE_URL = 'https://api.tomtom.com';
 
 /**
  * Fetches charging stations based on location and radius
@@ -11,88 +12,64 @@ const API_KEY = 'YOUR_OPEN_CHARGE_MAP_API_KEY'; // You need to register for an A
  * @param {number} radiusKm - Search radius in kilometers
  * @returns {Promise<Array>} - Array of charging stations
  */
-export const fetchNearbyStations = async (latitude, longitude, radiusKm = 10) => {
+export const fetchNearbyStations = async (latitude, longitude, radius = 10000) => {
   try {
-    const url = `${API_BASE_URL}/poi/?output=json&countrycode=TR&latitude=${latitude}&longitude=${longitude}&distance=${radiusKm}&distanceunit=km&maxresults=100&compact=true&verbose=false&key=${API_KEY}`;
-    
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+    const response = await axios.get(`${TOMTOM_BASE_URL}/search/2/poiSearch/charging.json`, {
+      params: {
+        key: TOMTOM_API_KEY,
+        lat: latitude,
+        lon: longitude,
+        radius: radius,
+        categorySet: 7309 // EV charging station category
+      }
+    });
+
+    if (response.data && response.data.results) {
+      // API yanıtını uygulamamız için uygun formata dönüştürme
+      const stations = response.data.results.map(item => {
+        // Availability bilgisi API'da olmadığı için rastgele atama yapıyoruz
+        // Gerçek bir uygulamada başka bir API veya veritabanından alınmalı
+        const isAvailable = Math.random() > 0.3; // %70 ihtimalle müsait
+        
+        return {
+          id: item.id || `station-${Math.random().toString(36).substr(2, 9)}`,
+          name: item.poi?.name || 'Şarj İstasyonu',
+          latitude: item.position.lat,
+          longitude: item.position.lon,
+          address: item.address?.freeformAddress || '',
+          charging_type: item.poi?.categories?.[0] || 'Standart',
+          power_kW: Math.floor(Math.random() * 150) + 50, // 50-200 kW arası rastgele değer
+          availability: isAvailable,
+        };
+      });
+      
+      return stations;
     }
     
-    const data = await response.json();
-    
-    // Transform the API data to match our app's format
-    return data.map(station => transformStationData(station));
-  } catch (error) {
-    console.error('Error fetching charging stations:', error);
-    Alert.alert(
-      'Veri Yükleme Hatası',
-      'Şarj istasyonu verileri yüklenirken bir hata oluştu. Lütfen internet bağlantınızı kontrol edin.',
-      [{ text: 'Tamam' }]
-    );
-    
-    // Return empty array or fallback to local data
     return [];
+  } catch (error) {
+    console.error('Error fetching nearby stations:', error);
+    throw error;
   }
 };
 
 /**
- * Transforms station data from API format to our app's format
- * @param {Object} apiStation - Station data from API
- * @returns {Object} - Transformed station data
+ * Calculate distance between two coordinates using Haversine formula
+ * @param {number} lat1 - First latitude
+ * @param {number} lon1 - First longitude
+ * @param {number} lat2 - Second latitude
+ * @param {number} lon2 - Second longitude
+ * @returns {number} - Distance in kilometers
  */
-const transformStationData = (apiStation) => {
-  // Extract address components
-  const addressInfo = apiStation.AddressInfo || {};
-  
-  // Extract connection types and availability
-  const connections = apiStation.Connections || [];
-  const availableConnections = connections.filter(conn => 
-    conn.StatusType && conn.StatusType.IsOperational
-  );
-  
-  // Get the highest power connection
-  const highestPowerConnection = connections.reduce((prev, current) => {
-    return (prev.PowerKW > current.PowerKW) ? prev : current;
-  }, { PowerKW: 0 });
-  
-  // Determine charging type
-  let chargingType = 'Unknown';
-  if (connections.length > 0 && connections[0].ConnectionType) {
-    chargingType = connections[0].ConnectionType.Title || 'Unknown';
-  }
-  
-  // Map to our app's data structure
-  return {
-    id: apiStation.ID,
-    name: addressInfo.Title || 'Unnamed Station',
-    latitude: addressInfo.Latitude,
-    longitude: addressInfo.Longitude,
-    charging_type: chargingType,
-    availability: availableConnections.length > 0,
-    power_kW: highestPowerConnection.PowerKW || 0,
-    address: [
-      addressInfo.AddressLine1,
-      addressInfo.Town,
-      addressInfo.StateOrProvince,
-      addressInfo.Postcode
-    ].filter(Boolean).join(', ')
-  };
-};
-
-/**
- * Fallback function to use local data when API is unavailable
- * @returns {Promise<Array>} - Array of charging stations from local data
- */
-export const getLocalStationData = async () => {
-  try {
-    // Import local data
-    const localData = require('../../station_information.json');
-    return localData;
-  } catch (error) {
-    console.error('Error loading local station data:', error);
-    return [];
-  }
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const toRad = value => value * Math.PI / 180;
+  const R = 6371; // Earth's radius in km
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
 }; 

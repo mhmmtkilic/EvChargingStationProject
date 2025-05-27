@@ -9,6 +9,9 @@ import CustomMarker from '../components/CustomMarker';
 import StationCallout from '../components/StationCallout';
 import Slider from '@react-native-community/slider';
 import { fetchNearbyStations, getLocalStationData } from '../services/stationService';
+import StationBottomSheet from '../components/StationBottomSheet';
+import RadiusSlider from '../components/RadiusSlider';
+import { Ionicons } from '@expo/vector-icons';
 
 // İstanbul merkez koordinatları - başlangıç koordinatları olarak kullanılacak (konum izni verilmediğinde)
 const ISTANBUL_COORDINATES = {
@@ -38,12 +41,12 @@ const HomeScreen = () => {
   const [userLocation, setUserLocation] = useState(TURKEY_COORDINATES);
   const [isPinned, setIsPinned] = useState(false);
   const [radiusInKm, setRadiusInKm] = useState(1);
-  const [showRadiusSettings, setShowRadiusSettings] = useState(false);
   const [stationsInRadius, setStationsInRadius] = useState([]);
   const [directionsPolyline, setDirectionsPolyline] = useState(null);
   const [voiceGuidanceEnabled, setVoiceGuidanceEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [stationData, setStationData] = useState([]);
+  const [stationDistance, setStationDistance] = useState(0);
   
   // Refs
   const mapRef = useRef(null);
@@ -92,13 +95,13 @@ const HomeScreen = () => {
     try {
       // Önce manuel olarak Polonezköy koordinatlarını ayarla
       const turkeyLocation = TURKEY_COORDINATES;
-    const newRegion = {
+      const newRegion = {
         ...turkeyLocation,
         ...DEFAULT_DELTA,
-    };
+      };
     
       setUserLocation(turkeyLocation);
-    setRegion(newRegion);
+      setRegion(newRegion);
       
       if (mapRef.current) {
         mapRef.current.animateToRegion(newRegion, 1000);
@@ -109,6 +112,12 @@ const HomeScreen = () => {
       
       if (!locationPermission || locationPermission.status !== 'granted') {
         Alert.alert('Konum İzni Gerekli', 'Konum servisinize erişim izni verilmedi. Polonezköy konumu kullanılıyor.');
+        
+        // Varsayılan konum için istasyonları yükle
+        if (isPinned) {
+          updateStationsInRadius(turkeyLocation, radiusInKm);
+        }
+        
         return;
       }
       
@@ -136,6 +145,10 @@ const HomeScreen = () => {
           // Konum sabitlenmişse, yarıçap içindeki istasyonları güncelle
           if (isPinned) {
             updateStationsInRadius(newUserLocation, radiusInKm);
+          } else {
+            // Konum sabitlenmese bile, yeni konuma göre tüm istasyonları yükle
+            const stations = await fetchNearbyStations(latitude, longitude, 10000); // 10km
+            setStationData(stations);
           }
         }
       } catch (error) {
@@ -154,59 +167,35 @@ const HomeScreen = () => {
     setIsLoading(true);
     
     try {
-      // Fetch stations from API based on location and radius
-      const stations = await fetchNearbyStations(center.latitude, center.longitude, radius);
+      // TomTom API'den istasyonları getir (km -> metre dönüşümü yap)
+      const radiusInMeters = radius * 1000;
+      const stations = await fetchNearbyStations(center.latitude, center.longitude, radiusInMeters);
       
       if (stations && stations.length > 0) {
         setStationData(stations);
         setStationsInRadius(stations);
       } else {
-        // Fallback to local data if API returns no results
-        const localStations = await getLocalStationData();
+        // Eğer radius içinde istasyon yoksa, kullanıcıya bildir
+        setStationsInRadius([]);
         
-        // Filter local stations by radius
-        const inRadiusStations = localStations.filter(station => {
-          const distance = calculateDistance(
-            center.latitude, 
-            center.longitude, 
-            station.latitude, 
-            station.longitude
-          );
-          return distance <= radius;
-        });
-        
-        setStationData(localStations);
-        setStationsInRadius(inRadiusStations);
+        Alert.alert(
+          'Bilgi',
+          `${radius} km yarıçapında şarj istasyonu bulunamadı.`,
+          [{ text: 'Tamam' }]
+        );
       }
     } catch (error) {
       console.error('Error updating stations in radius:', error);
       
-      // Fallback to local data
-      const localStations = await getLocalStationData();
-      
-      // Filter local stations by radius
-      const inRadiusStations = localStations.filter(station => {
-        const distance = calculateDistance(
-          center.latitude, 
-          center.longitude, 
-          station.latitude, 
-          station.longitude
-        );
-        return distance <= radius;
-      });
-      
-      setStationData(localStations);
-      setStationsInRadius(inRadiusStations);
-      
       Alert.alert(
         'Veri Yükleme Hatası',
-        'Şarj istasyonu verileri yüklenirken bir hata oluştu. Yerel veriler kullanılıyor.',
+        'Şarj istasyonu verileri yüklenirken bir hata oluştu.',
         [{ text: 'Tamam' }]
       );
     } finally {
       setIsLoading(false);
     }
-  }, [calculateDistance]);
+  }, []);
 
   // Konum sabitleme/kaldırma fonksiyonu - useCallback ile optimize edildi
   const togglePinLocation = useCallback(() => {
@@ -217,7 +206,6 @@ const HomeScreen = () => {
     
     const newPinnedState = !isPinned;
     setIsPinned(newPinnedState);
-    setShowRadiusSettings(newPinnedState);
     
     if (newPinnedState) {
       updateStationsInRadius(userLocation, radiusInKm);
@@ -233,7 +221,15 @@ const HomeScreen = () => {
   // Yarıçap değiştirme - useCallback ile optimize edildi
   const handleRadiusChange = useCallback((value) => {
     setRadiusInKm(value);
-  }, []);
+    
+    // Eğer konum sabitlenmişse ve kullanıcı konumu varsa,
+    // yarıçap değiştiğinde istasyonları hemen güncelle
+    if (isPinned && userLocation) {
+      // Çok sık API çağrısını önlemek için debounce mantığı uygulayabiliriz
+      // Şimdilik her değişiklikte güncelleme yapıyoruz
+      updateStationsInRadius(userLocation, value);
+    }
+  }, [isPinned, userLocation, updateStationsInRadius]);
 
   // Sesli yönlendirme fonksiyonu - useCallback ile optimize edildi
   const speakDirections = useCallback((station, distance) => {
@@ -351,15 +347,34 @@ const HomeScreen = () => {
       station.longitude
     );
     
+    // Mesafeyi state'e kaydet
+    setStationDistance(distance);
+    
     // Sesli yönlendirme yapma
-    speakDirections(station, distance);
+    if (voiceGuidanceEnabled) {
+      speakDirections(station, distance);
+    }
+  }, [calculateDistance, speakDirections, userLocation, voiceGuidanceEnabled]);
+
+  // Handle bottom sheet close
+  const handleBottomSheetClose = useCallback(() => {
+    // İstasyon seçimini kaldırma ve yol çizimini temizleme işlemlerini
+    // burada yapmayalım, çekmece kapandığında kullanıcının yol bilgisini görebilmesi için
+  }, []);
+
+  // İstasyon detaylarını göster
+  const handleShowStationDetails = useCallback(() => {
+    if (!selectedStation) return;
     
     Alert.alert(
-      'Şarj İstasyonu Bilgisi',
-      `${station.name}\nUzaklık: ${distance.toFixed(2)} km\nAdres: ${station.address}`,
+      selectedStation.name,
+      `Adres: ${selectedStation.address}\n` +
+      `Şarj Tipi: ${selectedStation.charging_type}\n` +
+      `Güç: ${selectedStation.power_kW} kW\n` +
+      `Durum: ${selectedStation.availability ? 'Müsait' : 'Meşgul'}`,
       [{ text: 'Tamam' }]
     );
-  }, [calculateDistance, speakDirections, userLocation]);
+  }, [selectedStation]);
 
   // Sesli yönlendirme açma/kapama toggle fonksiyonu - useCallback ile optimize edildi
   const toggleVoiceGuidance = useCallback(() => {
@@ -385,6 +400,9 @@ const HomeScreen = () => {
 
   // Handle Map Press - useCallback ile optimize edildi
   const handleMapPress = useCallback(() => {
+    // We don't need to close the bottom sheet anymore since it's always visible
+    
+    // Clear selected station only if we're actually clearing the selection
     if (selectedStation) {
       setSelectedStation(null);
       setDirectionsPolyline(null);
@@ -410,15 +428,37 @@ const HomeScreen = () => {
         { text: "İptal", style: "cancel" },
         { 
           text: "Evet", 
-          onPress: () => {
+          onPress: async () => {
             setUserLocation(coordinate);
             setRegion({
               ...coordinate,
               ...DEFAULT_DELTA,
             });
             
-            if (isPinned) {
-              updateStationsInRadius(coordinate, radiusInKm);
+            // Konum değiştiğinde otomatik olarak yarıçap göstermeyi aktifleştir
+            setIsPinned(true);
+            
+            // Yeni konuma göre istasyonları güncelle
+            setIsLoading(true);
+            try {
+              // RadiusInKm değerine göre istasyonları getir (metre cinsine çevir)
+              const radiusInMeters = radiusInKm * 1000;
+              const stations = await fetchNearbyStations(
+                coordinate.latitude, 
+                coordinate.longitude, 
+                radiusInMeters
+              );
+              setStationData(stations);
+              setStationsInRadius(stations);
+            } catch (error) {
+              console.error('Error fetching stations:', error);
+              Alert.alert(
+                'Veri Yükleme Hatası',
+                'Şarj istasyonu verileri yüklenirken bir hata oluştu.',
+                [{ text: 'Tamam' }]
+              );
+            } finally {
+              setIsLoading(false);
             }
             
             if (mapRef.current) {
@@ -431,7 +471,7 @@ const HomeScreen = () => {
         }
       ]
     );
-  }, [isPinned, radiusInKm, updateStationsInRadius]);
+  }, [radiusInKm, fetchNearbyStations]);
 
   const handleSearch = useCallback((searchText) => {
     console.log('Searching for:', searchText);
@@ -464,6 +504,21 @@ const HomeScreen = () => {
             
             if (isPinned) {
               updateStationsInRadius(newUserLocation, radiusInKm);
+            } else {
+              // Konum değiştiğinde yeni lokasyona göre istasyonları güncelle
+              // Bu fonksiyonu performans nedeniyle sınırlandırabilirsiniz
+              const updateStations = async () => {
+                try {
+                  const stations = await fetchNearbyStations(latitude, longitude, 10000);
+                  setStationData(stations);
+                } catch (error) {
+                  console.error('Error updating stations:', error);
+                }
+              };
+              
+              // Opsiyonel: Çok sık çağrılmasını önlemek için
+              // Bu kısmı şimdilik yoruma alıyoruz, yalnızca konum sabitlendiğinde güncelleyeceğiz
+              // updateStations();
             }
           }
         }
@@ -472,75 +527,6 @@ const HomeScreen = () => {
       console.log('Location tracking error:', error);
     }
   }, [isPinned, radiusInKm, updateStationsInRadius]);
-
-  // İstasyon bilgi paneli - useMemo ile optimize edildi
-  const renderStationInfoPanel = useMemo(() => {
-    if (!selectedStation || !directionsPolyline) return null;
-    
-    const distance = calculateDistance(
-      userLocation.latitude,
-      userLocation.longitude,
-      selectedStation.latitude,
-      selectedStation.longitude
-    );
-    
-    const estimatedTime = Math.round(distance * 2); // km başına 2 dakika (ortalama)
-    
-    return (
-      <View style={styles.routeInfoContainer}>
-        <Text style={styles.stationName}>{selectedStation.name}</Text>
-        
-        <View style={styles.stationDetailsContainer}>
-          <View style={styles.stationDetailItem}>
-            <Text style={styles.detailLabel}>Mesafe:</Text>
-            <Text style={styles.detailValue}>{distance.toFixed(2)} km</Text>
-          </View>
-          
-          <View style={styles.stationDetailItem}>
-            <Text style={styles.detailLabel}>Süre:</Text>
-            <Text style={styles.detailValue}>{estimatedTime} dk</Text>
-          </View>
-          
-          <View style={styles.stationDetailItem}>
-            <Text style={styles.detailLabel}>Durum:</Text>
-            <Text style={[
-              styles.detailValue,
-              selectedStation.availability ? styles.availableText : styles.unavailableText
-            ]}>
-              {selectedStation.availability ? '✓ Müsait' : '✕ Meşgul'}
-            </Text>
-          </View>
-        </View>
-        
-        <Text style={styles.addressText}>
-          <Text style={styles.addressLabel}>Adres: </Text>
-          {selectedStation.address}
-        </Text>
-        
-        <Text style={styles.chargingTypeText}>
-          <Text style={styles.chargingTypeLabel}>Şarj Tipi: </Text>
-          {selectedStation.charging_type} • {selectedStation.power_kW} kW
-        </Text>
-        
-        {/* Sesli yönlendirme kontrolü için butonlar */}
-        <View style={styles.voiceControlContainer}>
-          <TouchableOpacity 
-            style={styles.voiceButton} 
-            onPress={() => speakDirections(selectedStation, distance)}
-          >
-            <Text style={styles.voiceButtonText}>🔊 Sesli Yönlendir</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.voiceButton} 
-            onPress={() => Speech.stop()}
-          >
-            <Text style={styles.voiceButtonText}>🔇 Sesi Durdur</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }, [calculateDistance, selectedStation, directionsPolyline, userLocation, speakDirections]);
 
   // Uygulama başladığında konum izni iste
   useEffect(() => {
@@ -574,17 +560,24 @@ const HomeScreen = () => {
     const loadInitialData = async () => {
       setIsLoading(true);
       try {
-        const localStations = await getLocalStationData();
-        setStationData(localStations);
+        // Kullanıcı konumu varsa o konumdan, yoksa varsayılan konumdan istasyonları yükle
+        const location = userLocation || TURKEY_COORDINATES;
+        const stations = await fetchNearbyStations(location.latitude, location.longitude, 10000); // 10km
+        setStationData(stations);
       } catch (error) {
         console.error('Error loading initial data:', error);
+        Alert.alert(
+          'Veri Yükleme Hatası',
+          'Şarj istasyonu verileri yüklenirken bir hata oluştu.',
+          [{ text: 'Tamam' }]
+        );
       } finally {
         setIsLoading(false);
       }
     };
     
     loadInitialData();
-  }, []);
+  }, [userLocation]); // userLocation değiştiğinde yeniden yükle
 
   return (
     <View style={styles.container}>
@@ -607,6 +600,18 @@ const HomeScreen = () => {
         zoomEnabled={true}
         pitchEnabled={true}
       >
+        {/* Yarıçap çemberi - Her zaman görünür hale getir */}
+        {isPinned && userLocation && (
+          <Circle
+            center={userLocation}
+            radius={radiusInKm * 1000}
+            fillColor="rgba(52, 152, 219, 0.2)" // Daha belirgin mavi-şeffaf dolgu
+            strokeColor="rgba(41, 128, 185, 0.9)" // Daha belirgin mavi kenar
+            strokeWidth={3}
+            zIndex={1} // Diğer elementlerin altında kalmasını sağla
+          />
+        )}
+        
         {/* İstasyonlar - Eğer yarıçap aktif ise, sadece yarıçap içindekileri göster */}
         {markersToShow.map((station) => (
           <Marker
@@ -616,6 +621,7 @@ const HomeScreen = () => {
               longitude: station.longitude,
             }}
             onPress={() => handleStationSelect(station)}
+            zIndex={2} // İstasyonlar çemberin üstünde görünsün
           >
             <CustomMarker isAvailable={station.availability} />
             <Callout>
@@ -631,18 +637,8 @@ const HomeScreen = () => {
           pinColor="blue"
           title="Konumum"
           description="Şu anki konumunuz"
+          zIndex={3} // Kullanıcı konumu en üstte görünsün
         />
-        )}
-        
-        {/* Yarıçap çemberi */}
-        {isPinned && userLocation && (
-          <Circle
-            center={userLocation}
-            radius={radiusInKm * 1000}
-            fillColor="rgba(52, 152, 219, 0.15)" // Mavi-şeffaf dolgu
-            strokeColor="rgba(41, 128, 185, 0.7)" // Mavi kenar
-            strokeWidth={2}
-          />
         )}
         
         {/* Yol çizimi */}
@@ -654,6 +650,7 @@ const HomeScreen = () => {
             lineDashPattern={[0]}
             lineCap="round"
             lineJoin="round"
+            zIndex={2} // Yol çizgisi istasyonlarla aynı seviyede görünsün
           />
         )}
       </MapView>
@@ -670,23 +667,14 @@ const HomeScreen = () => {
         <Text style={styles.helpText}>Konumu manuel değiştirmek için haritaya uzun basın</Text>
       </View>
       
-      <View style={styles.locationButtonContainer}>
-        <TouchableOpacity 
-          style={[styles.locationButton, isPinned && styles.locationButtonActive]} 
-          onPress={togglePinLocation}
-        >
-          <Text style={[styles.locationButtonText, isPinned && styles.activeButtonText]}>
-            {isPinned ? 'Konumu Kaldır' : 'Konumu Sabitle'}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.myLocationButton} 
-          onPress={getCurrentLocation}
-        >
-          <Text style={styles.locationButtonText}>Konumuma Git</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Ana konum butonunu koru */}
+      <TouchableOpacity 
+        style={styles.myLocationButton} 
+        onPress={getCurrentLocation}
+      >
+        <Ionicons name="locate" size={20} color="#2980b9" />
+        <Text style={styles.myLocationButtonText}>Konumuma Git</Text>
+      </TouchableOpacity>
       
       {/* Sesli yönlendirme kontrolü için her zaman görünür buton */}
       <TouchableOpacity 
@@ -701,41 +689,19 @@ const HomeScreen = () => {
         </Text>
       </TouchableOpacity>
       
-      {showRadiusSettings && (
-        <View style={styles.radiusSettingsContainer}>
-          <Text style={styles.radiusText}>Yarıçap: {radiusInKm.toFixed(1)} km</Text>
-          <Slider
-            style={styles.slider}
-            minimumValue={0.1}
-            maximumValue={20}
-            step={0.1}
-            value={radiusInKm}
-            onValueChange={handleRadiusChange}
-            minimumTrackTintColor="#3498db" // Mavi
-            maximumTrackTintColor="#dddddd"
-            thumbTintColor="#2980b9" // Koyu mavi
-          />
-          <View style={styles.radiusPresets}>
-            <TouchableOpacity style={styles.presetButton} onPress={() => setRadiusInKm(1)}>
-              <Text style={styles.presetButtonText}>1 km</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.presetButton} onPress={() => setRadiusInKm(5)}>
-              <Text style={styles.presetButtonText}>5 km</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.presetButton} onPress={() => setRadiusInKm(10)}>
-              <Text style={styles.presetButtonText}>10 km</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <Text style={stationsInRadius.length > 0 ? styles.stationsCountText : styles.noStationsText}>
-            {stationsInRadius.length > 0 
-              ? `${stationsInRadius.length} şarj istasyonu bulundu` 
-              : 'Bu alanda şarj istasyonu bulunamadı'}
-          </Text>
-        </View>
-      )}
-      
-      {renderStationInfoPanel}
+      {/* Yeni universal bottom sheet */}
+      <StationBottomSheet
+        station={selectedStation}
+        distance={stationDistance}
+        radiusInKm={radiusInKm}
+        stationsCount={stationsInRadius.length}
+        isPinned={isPinned}
+        onRadiusChange={handleRadiusChange}
+        onSpeakDirections={() => selectedStation && speakDirections(selectedStation, stationDistance)}
+        onStopSpeech={() => Speech.stop()}
+        onShowDetails={handleShowStationDetails}
+        onTogglePinLocation={togglePinLocation}
+      />
       
       <BottomNavBar onTabPress={handleTabPress} />
     </View>
@@ -771,34 +737,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
   },
-  // Butonlar konteyner
-  locationButtonContainer: {
-    position: 'absolute',
-    bottom: 150,
-    right: 15,
-    flexDirection: 'column',
-    zIndex: 999,
-  },
-  locationButton: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginBottom: 10,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    minWidth: 130,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#3498db', // Mavi kenarlık
-  },
-  locationButtonActive: {
-    backgroundColor: '#3498db', // Mavi arka plan
-  },
   myLocationButton: {
+    position: 'absolute',
+    right: 15,
+    bottom: 150,
     backgroundColor: '#fff',
     paddingHorizontal: 15,
     paddingVertical: 10,
@@ -808,187 +750,16 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
-    minWidth: 130,
+    flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#2980b9', // Koyu mavi kenarlık
+    zIndex: 999,
   },
-  locationButtonText: {
+  myLocationButtonText: {
     fontWeight: 'bold',
     color: '#2980b9', // Koyu mavi metin rengi
-  },
-  activeButtonText: {
-    color: '#ffffff',
-  },
-  // Yarıçap ayar paneli
-  radiusSettingsContainer: {
-    position: 'absolute',
-    bottom: 150,
-    left: 10,
-    right: 150,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    borderWidth: 1,
-    borderColor: '#bdc3c7', // Gri kenarlık
-  },
-  radiusText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
-    color: '#34495e', // Koyu gri-mavi
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-  radiusPresets: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 10,
-  },
-  presetButton: {
-    backgroundColor: '#f5f5f5',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#bdc3c7', // Gri kenarlık
-  },
-  presetButtonText: {
-    fontWeight: 'bold',
-    fontSize: 12,
-    color: '#34495e', // Koyu gri-mavi
-  },
-  // İstasyon sayaçları
-  stationsCountText: {
-    textAlign: 'center',
-    marginTop: 10,
-    fontWeight: 'bold',
-    color: '#3498db', // Mavi
-  },
-  noStationsText: {
-    textAlign: 'center',
-    marginTop: 10,
-    fontWeight: 'bold',
-    color: '#e74c3c', // Kırmızı
-  },
-  // Rota bilgi paneli
-  routeInfoContainer: {
-    position: 'absolute',
-    top: 110, // Üstten başlat
-    left: 10,
-    right: 10,
-    backgroundColor: 'rgba(52, 73, 94, 0.85)', // Koyu mavi-gri arka plan
-    borderRadius: 10,
-    padding: 15,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(82, 103, 124, 0.5)', // Hafif kenarlık
-  },
-  stationName: {
-    color: 'white',
-    fontWeight: 'bold',
-    textAlign: 'center',
-    fontSize: 16,
-    marginBottom: 10,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
-  },
-  stationDetailsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-    backgroundColor: 'rgba(44, 62, 80, 0.5)', // Biraz daha koyu arka plan
-    borderRadius: 8,
-    padding: 10,
-  },
-  stationDetailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  detailLabel: {
-    fontWeight: 'bold',
-    color: '#bdc3c7', // Gri
-    marginRight: 5,
-    fontSize: 12,
-  },
-  detailValue: {
-    color: 'white',
-    fontSize: 13,
-  },
-  addressText: {
-    color: '#ecf0f1', // Açık gri
-    textAlign: 'left',
-    fontSize: 12,
-    marginBottom: 5,
-    backgroundColor: 'rgba(44, 62, 80, 0.3)', // Biraz daha koyu arka plan
-    padding: 8,
-    borderRadius: 6,
-  },
-  addressLabel: {
-    fontWeight: 'bold',
-    color: '#bdc3c7', // Gri
-  },
-  chargingTypeText: {
-    color: '#ecf0f1', // Açık gri
-    textAlign: 'left',
-    fontSize: 12,
-    backgroundColor: 'rgba(44, 62, 80, 0.3)', // Biraz daha koyu arka plan
-    padding: 8,
-    borderRadius: 6,
-  },
-  chargingTypeLabel: {
-    fontWeight: 'bold',
-    color: '#bdc3c7', // Gri
-  },
-  // Ses kontrolü
-  voiceControlContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(189, 195, 199, 0.3)', // Gri
-  },
-  voiceButton: {
-    backgroundColor: 'rgba(236, 240, 241, 0.15)', // Çok hafif gri
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
-    minWidth: 120,
-    borderWidth: 1,
-    borderColor: 'rgba(189, 195, 199, 0.4)', // Gri kenarlık
-  },
-  voiceButtonText: {
-    fontWeight: 'bold',
-    color: '#ecf0f1', // Açık gri
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  availableText: {
-    color: '#2ecc71', // Yeşil
-    fontWeight: 'bold',
-  },
-  unavailableText: {
-    color: '#e74c3c', // Kırmızı
-    fontWeight: 'bold',
+    marginLeft: 6,
   },
   // Sesli yönlendirme toggle butonu
   voiceGuidanceButton: {

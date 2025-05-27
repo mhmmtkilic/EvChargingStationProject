@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EV Charging Station Finder</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.23.0/maps/maps-web.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>EV Charging Station Finder</h1>
+    </header>
+    
+    <div class="search-container">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Search location...">
+        <button id="search-btn">Search</button>
+        <button id="locate-btn">Use My Location</button>
+      </div>
+      <div class="filter-options">
+        <label>
+          <span>Radius (km):</span>
+          <input type="range" id="radius-slider" min="1" max="50" value="10">
+          <span id="radius-value">10</span>
+        </label>
+      </div>
+    </div>
+    
+    <div class="content">
+      <div id="map"></div>
+      <div class="station-list">
+        <h2>Nearby Charging Stations</h2>
+        <div id="stations-container"></div>
+      </div>
+    </div>
+    
+    <div id="route-details" class="hidden">
+      <h3>Route to Station</h3>
+      <div class="route-summary">
+        <div class="route-info">
+          <span id="distance"></span>
+          <span id="duration"></span>
+        </div>
+        <button id="close-route">Close</button>
+      </div>
+      <div id="route-instructions"></div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html> 
